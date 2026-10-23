@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Letter Generator | USDC Projects India Pvt Ltd </title>
+<title>Letter Generator | USDC Global</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
@@ -32,8 +32,8 @@
   .field{margin-bottom:0;}
   .grid3{display:grid;grid-template-columns:1fr;gap:14px;}
   @media(min-width:700px){.grid3{grid-template-columns:1fr 1fr 1fr;}}
-  .top-select-card{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
-  @media(max-width:600px){.top-select-card{grid-template-columns:1fr;}}
+  .top-select-card{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:500px){.top-select-card{grid-template-columns:1fr;}}
   button{padding:14px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:background .15s;}
   button#generateBtn, button#bulkGenerateBtn{width:100%;background:var(--emerald-500);color:#fff;}
   button#generateBtn:hover, button#bulkGenerateBtn:hover{background:var(--teal-700);}
@@ -103,7 +103,7 @@
 <header>
   <div class="header-left">
     <h1>Offer &amp; Appointment Letter Generator</h1>
-    <p> USDC Projects India Pvt Ltd </p>
+    <p>USDC Projects India Pvt Ltd </p>
   </div>
   <button class="admin-link" onclick="openAdmin()">⚙ Admin Panel</button>
 </header>
@@ -132,6 +132,13 @@
         <select id="letterHead">
           <option value="with">With Letterhead</option>
           <option value="without">Without Letterhead</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>PF Slab</label>
+        <select id="pfSlab">
+          <option value="old">Old PF Rules (Employer PF capped at ₹1,800/month)</option>
+          <option value="new">New PF Rules (No cap — actual 12% of Basic+DA)</option>
         </select>
       </div>
     </div>
@@ -386,19 +393,22 @@ const SALARY_PA_FIELDS = [
 ].map(f => ({ ...f, type:'number', required:false }));
 
 /* ============== SALARY FORMULA ============== */
-function computeSalaryBreakup(gross, annualIncentive){
+function computeSalaryBreakup(gross, annualIncentive, pfSlab){
   gross = Number(gross) || 0;
   annualIncentive = Number(annualIncentive) || 0;
+  pfSlab = pfSlab || 'old';
   const basicDA = gross*0.60, hra = gross*0.15, conveyance = gross*0.04,
         cca = gross*0.02, medical = gross*0.06, other = gross*0.13;
   const pfBase = (gross - hra) * 0.12;
-  const employerPF = pfBase > 1800 ? 1800 : pfBase;
+  // Old PF Rules: Employer PF capped at ₹1,800/month
+  // New PF Rules: No cap — actual 12% of (gross - hra)
+  const employerPF = (pfSlab === 'new') ? pfBase : (pfBase > 1800 ? 1800 : pfBase);
   const employerESI = gross <= 21000 ? gross * 0.0075 : 0;
   const gratuity = basicDA * 0.0481;
   const partOfCTC = employerPF + employerESI + gratuity;
   const costToCompany = gross + partOfCTC;
-  const annualCTC = costToCompany * 12;
-  const totalCTC = annualCTC + annualIncentive;
+  // Annual CTC and Cost to Company PA both INCLUDE Annual Performance Incentive
+  const annualCTC = costToCompany * 12 + annualIncentive;
   return {
     Basic_and_DA_PM: basicDA, HRA_PM: hra, Conveyance_PM: conveyance, CCA_PM: cca,
     Medical_PM: medical, Other_PM: other, Employer_PF_PM: employerPF, Employer_ESI_PM: employerESI,
@@ -406,10 +416,10 @@ function computeSalaryBreakup(gross, annualIncentive){
     Basic_and_DA_PA: basicDA*12, HRA_PA: hra*12, Conveyance_Allowance_PA: conveyance*12, CCA_PA: cca*12,
     Medical_Allowance_PA: medical*12, Other_Allowance_PA: other*12, Total_Gross_Salary_PA: gross*12,
     Employer_PF_PA: employerPF*12, Employer_ESI_PA: employerESI*12, Gratuity_PA: gratuity*12,
-    Part_of_CTC_PA: partOfCTC*12, Cost_to_Company_PA: costToCompany*12,
+    Part_of_CTC_PA: partOfCTC*12, Cost_to_Company_PA: annualCTC,
     Annual_CTC: annualCTC,
     Annual_Performance_Incentive: annualIncentive,
-    Total_Cost_to_Company: totalCTC
+    Total_Cost_to_Company: annualCTC
   };
 }
 
@@ -477,7 +487,8 @@ function renderForm(){
 
   function recalc(){
     if (manualCheckbox.checked) return;
-    const computed = computeSalaryBreakup(grossEl.value, incentiveEl ? incentiveEl.value : 0);
+    const pfSlabVal = (document.getElementById('pfSlab') || {}).value || 'old';
+    const computed = computeSalaryBreakup(grossEl.value, incentiveEl ? incentiveEl.value : 0, pfSlabVal);
     allBreakupKeys.forEach(k => { const el = document.getElementById('f_'+k); if (el) el.value = Math.round(computed[k]); });
     if (annualCtcEl) annualCtcEl.value = Math.round(computed.Annual_CTC);
     if (totalCtcEl) totalCtcEl.value = Math.round(computed.Total_Cost_to_Company);
@@ -493,6 +504,12 @@ function renderForm(){
 letterTypeEl.addEventListener('change', renderForm);
 entityEl.addEventListener('change', renderForm);
 renderForm();
+
+// When PF Slab changes, trigger recalc on the gross field
+document.getElementById('pfSlab').addEventListener('change', () => {
+  const grossEl = document.getElementById('f_Total_Gross');
+  if (grossEl) grossEl.dispatchEvent(new Event('input'));
+});
 
 function updateTemplateButtons(){
   const lt = letterTypeEl.value;
@@ -550,7 +567,8 @@ form.addEventListener('submit', async (e) => {
 
   generateBtn.disabled = true; spinner.style.display = 'inline-block'; btnLabel.textContent = 'Generating…';
 
-  const data = await callApi({ action:'generate', letterType, letterHead, entity, autoCalc, fields });
+  const pfSlab = document.getElementById('pfSlab').value || 'old';
+  const data = await callApi({ action:'generate', letterType, letterHead, entity, autoCalc, pfSlab, fields });
 
   if (!data.success) {
     showMsg(resultMsg, 'error', 'Could not generate the letter: ' + (data.error || 'Unknown error.'));
@@ -591,7 +609,8 @@ const HEADER_TO_KEY = {
   'Employee Full Name': 'Employee_Full_Name',
   'Designation In Offer Letter': 'Designation_In_Offer_Letter',
   'Location': 'Location',
-  'Total Gross': 'Total_Gross'
+  'Total Gross': 'Total_Gross',
+  'Annual Performance Incentive': 'Annual_Performance_Incentive'
 };
 
 function chunkArray(arr, size){
@@ -654,7 +673,8 @@ bulkGenerateBtn.addEventListener('click', async () => {
 
   for (const chunk of chunks) {
     bulkBtnLabel.textContent = `Processing ${processed} / ${rows.length}…`;
-    const data = await callApi({ action:'generateBulkChunk', letterType, letterHead, entity: entityEl.value, rows: chunk }, 100000);
+    const pfSlab = document.getElementById('pfSlab').value || 'old';
+    const data = await callApi({ action:'generateBulkChunk', letterType, letterHead, entity: entityEl.value, pfSlab, rows: chunk }, 100000);
 
     if (!data.success) {
       allResults.push(...chunk.map(r => ({ employeeName: r.Employee_Full_Name, success:false, error: data.error || 'Chunk failed' })));
