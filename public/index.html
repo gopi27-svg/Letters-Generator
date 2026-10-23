@@ -103,7 +103,7 @@
 <header>
   <div class="header-left">
     <h1>Offer &amp; Appointment Letter Generator</h1>
-    <p>USDC Projects India Pvt Ltd</p>
+    <p> USDC Projects India Pvt Ltd </p>
   </div>
   <button class="admin-link" onclick="openAdmin()">⚙ Admin Panel</button>
 </header>
@@ -406,7 +406,7 @@ function computeSalaryBreakup(gross, annualIncentive, pfSlab){
   const employerPF = (pfSlab === 'new')
     ? Math.min(pfWage, 25000) * 0.12
     : Math.min(pfWage, 15000) * 0.12;
-  const employerESI = gross <= 21000 ? gross * 0.0075 : 0;
+  const employerESI = gross <= 21000 ? gross * 0.0325 : 0;  // Employer ESI = 3.25%
   const gratuity = basicDA * 0.0481;
   const partOfCTC = employerPF + employerESI + gratuity;
   const costToCompany = gross + partOfCTC;
